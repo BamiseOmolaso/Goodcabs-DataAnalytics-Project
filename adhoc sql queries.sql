@@ -1,3 +1,4 @@
+-- Business Request - 1: City-Level Fare and Trip Summary Report
 SELECT
 	dc.city_name as city_name, count(f.trip_id) as total_trips, 
 	round(avg(f.fare_amount/f.distance_travelled_km),2) as avg_fare_per_km,
@@ -10,6 +11,7 @@ JOIN
 GROUP BY
 	city_name;
 
+-- Business Request - 2: Monthly City-Level Trips Target Performance Report
 SELECT 
     dc.city_name,
     DATE_FORMAT(f.date, '%Y-%m') AS month_name,
@@ -32,6 +34,8 @@ GROUP BY
 ORDER BY 
     dc.city_name, month_name;
 
+
+-- Business Request -3: City-Level Repeat Passenger Trip Frequency Report
 SELECT 
     dc.city_name,
     ROUND(SUM(CASE WHEN d.trip_count = 2 THEN d.repeat_passenger_count ELSE 0 END) / SUM(d.repeat_passenger_count) * 100, 2) AS `2-Trips`,
@@ -51,7 +55,38 @@ GROUP BY
     dc.city_name
 ORDER BY 
     dc.city_name;
-    
+
+-- Business Request -4: Identify Cities with Highest and Lowest Total New Passengers
+WITH city_passenger_ranking AS (
+    SELECT
+        dc.city_name,
+        SUM(f.new_passengers) AS total_new_passengers,
+        RANK() OVER (ORDER BY SUM(f.new_passengers) DESC) AS rank_high,
+        RANK() OVER (ORDER BY SUM(f.new_passengers)) AS rank_low
+    FROM
+        trips_db.fact_passenger_summary f
+    JOIN
+        trips_db.dim_city dc ON f.city_id = dc.city_id
+    GROUP BY
+        dc.city_name
+)
+SELECT
+    city_name,
+    total_new_passengers,
+    CASE
+        WHEN rank_high <= 3 THEN 'Top 3'
+        WHEN rank_low <= 3 THEN 'Bottom 3'
+        ELSE NULL
+    END AS city_category
+FROM
+    city_passenger_ranking
+WHERE
+    rank_high <= 3 OR rank_low <= 3
+ORDER BY
+    city_category, total_new_passengers DESC;
+
+
+-- Business Request - 5: Identify Month with Highest Revenue for Each City
 WITH monthly_revenue AS (
     SELECT 
         dc.city_name,
@@ -85,7 +120,8 @@ WHERE
     revenue_rank = 1
 ORDER BY 
     city_name;
-    
+
+-- Business Request - 6: Repeat Passenger Rate Analysis    
 WITH monthly_repeat_rate AS (
     SELECT 
         dc.city_name,
